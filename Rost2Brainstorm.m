@@ -408,8 +408,15 @@ function defOPTIONS = roast2brainstorm_defaults()
     end
     % find roast dir
     mfilename = ('roast.m');
-    RoastHomeDir = fileparts(which(mfilename));
+    RoastHomeDir = fileparts(which(mfilename));    
     RoastOutputDir = fullfile(RoastHomeDir,'example');
+    
+    % start braisntom 
+    % Start Brainstorm with GUI
+    % bst_startup(BrainstormHomeDir, 0, BrainstormDbDir); < == TODO 
+    brainstorm     
+    
+    % find Brainstorm Db dir
     BrainstormDbDir = bst_get('BrainstormDbDir');
 
     % outputs
