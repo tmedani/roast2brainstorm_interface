@@ -46,7 +46,8 @@ function Rost2Brainstorm(varargin)
 % Create the roast2brainstorm_protocol with a subject. The anatomy folder contains the MRI,
 % the FEM mesh of the head model and the outersurface of the cortex extracted from the FEM mesh
 % The functional folder conains the location of the electrods and the LF (forward model)
-% for the cortex and for the whol head (if specified in the opts).
+% for the cortex and for the whole head (if specified in the opts).
+% check the available options within the function roast2brainstorm_defaults 
 
 
 %% ===== START =====
@@ -104,6 +105,14 @@ end
 disp([ 'RoastOutputDir : ' OPTIONS.RoastOutputDir])
 disp([ 'BrainstormDbDir : ' OPTIONS.BrainstormDbDir])
 optionTable = struct2table(OPTIONS,'AsArray',true)
+
+% call the roast LF default computation <== TODO for other subjects
+if OPTIONS.runRoastLeadField
+    currentDir = pwd;
+    cd(RoastHomeDir) 
+    roast([],'leadField','simulationTag','MNI152leadField');
+    cd(currentDir)
+end
 
 %% start brainstorm
 % Start profiling
@@ -424,6 +433,7 @@ function defOPTIONS = roast2brainstorm_defaults()
     defOPTIONS.BrainstormDbDir = BrainstormDbDir;
     defOPTIONS.RoastOutputDir = RoastOutputDir;
     defOPTIONS.BrainstormHomeDir = BrainstormHomeDir;
+    defOPTIONS.runRoastLeadField = 0; 
     defOPTIONS.ProtocolName = 'roast2brainstorm';
     defOPTIONS.SubjectName = 'Subject01';
     defOPTIONS.inputSubjectMri = 'MNI152_T1_1mm.nii';
