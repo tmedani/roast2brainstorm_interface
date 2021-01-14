@@ -2,17 +2,19 @@ function Rost2Brainstorm(varargin)
 % Rost2Brainstorm : Create a Brainstorm protocol and load the Roast outputs.
 % Usages :
 % Rost2Brainstorm()
-% Rost2Brainstorm(RoastOutputDir)
-% Rost2Brainstorm(RoastOutputDir, BrainstormDbDir)
-% Rost2Brainstorm(RoastOutputDir, BrainstormDbDir,options)
+% Rost2Brainstorm(RoastOutputDir, fmriFileName)
+% Rost2Brainstorm(RoastOutputDir, fmriFileName, BrainstormDbDir)
+% Rost2Brainstorm(RoastOutputDir, fmriFileName, BrainstormDbDir,options)
 % Rost2Brainstorm(options)
 % Inputs arguments
 % RoastOutputDir : Complete path to the Roast outputs, 
-%                          deffault :  roast/example
+%                          default :  roast/example
+% fmriFileName : Name of the original fMRI file, 
+%                          default :  'MNI152_T1_1mm.nii'
 % BrainstormDbDir : Complete path to the Brainstom data base, 
 %                           default : default Brainstorm folder 
 %                           if the specified folder does not esxit, i will be created           
-% options : Matlaba structures with the following fields 
+% options : Matlab structures with the following fields 
 % BrainstormDbDir: Similar as above
 % RoastOutputDir: Similar as above
 % RoastHomeDir: path where roast is located
@@ -62,21 +64,22 @@ if (nargin < 1) || isempty(varargin{1})
     OPTIONS.RoastOutputDir = defOPTIONS.RoastOutputDir;
     OPTIONS.BrainstormDbDir = defOPTIONS.BrainstormDbDir;
 end
-if (nargin == 1) && ischar(varargin{1})
+if (nargin == 2) && ischar(varargin{1}) && ischar(varargin{2})
     OPTIONS.RoastOutputDir = varargin{1};
+    OPTIONS.inputSubjectMri = varargin{2};
     OPTIONS.BrainstormDbDir = defOPTIONS.BrainstormDbDir;
 end
 
-if (nargin == 1) && isstruct(varargin{1})
+if (nargin == 2) && isstruct(varargin{1})
     OPTIONS = struct_copy_fields(opts, defOPTIONS, 0);
 end
 
-if (nargin == 2) && ischar(varargin{1}) && ischar(varargin{2})
+if (nargin == 3) && ischar(varargin{1}) && ischar(varargin{3})
     OPTIONS.RoastOutputDir = varargin{1};
-    OPTIONS.BrainstormDbDir = varargin{2};
+    OPTIONS.BrainstormDbDir = varargin{3};
 end
 
-if (nargin == 3) && ischar(varargin{1}) && ischar(varargin{2}) && isstruct(varargin{3})
+if (nargin == 4) && ischar(varargin{1}) && ischar(varargin{3}) && isstruct(varargin{3})
     OPTIONS.RoastOutputDir = varargin{1};
     OPTIONS.BrainstormDbDir = varargin{2};
     OPTIONS = struct_copy_fields(opts, defOPTIONS, 0);
@@ -137,8 +140,8 @@ sFiles = [];
 SubjectNames = {OPTIONS.SubjectName};
 RawFiles = {fullfile(OPTIONS.RoastOutputDir, OPTIONS.inputSubjectMri)};
 %%% Create a study
-% StudyName = 'roast';
-% iStudy = db_add_condition(SubjectName, StudyName);
+StudyName = 'roast';
+iStudy = db_add_condition(OPTIONS.SubjectName, StudyName);
 
 % Process: Import MRI
 bst_progress('text', 'Rosat2Brainstorm: Import MRI...');
@@ -168,17 +171,18 @@ if OPTIONS.editMriFiducial ==1
     view_mri(filenameRelative, 'EditFiducials');
 end
 
-if OPTIONS.computeCatCortex == 1
-    bst_call(@process_segment_cat12, 'ComputeInteractive', iSubject,sSubject.iAnatomy);
-%     nVertices = 15000;
-end
-if OPTIONS.computeSpmSurfaces == 1
-    bst_call(@process_generate_canonical, 'ComputeInteractive', iSubject, sSubject.iAnatomy)
-end
+% if OPTIONS.computeCatCortex == 1
+%     bst_call(@process_segment_cat12, 'ComputeInteractive', iSubject,sSubject.iAnatomy);
+% %     nVertices = 15000;
+% end
+% if OPTIONS.computeSpmSurfaces == 1
+%     bst_call(@process_generate_canonical, 'ComputeInteractive', iSubject, sSubject.iAnatomy)
+% end
 %% Load the FEM mesh
-%===> TODO : use the Options to write the correct name ==> 'MNI152_T1_1mm_MNI152leadField.mat'
 bst_progress('text', 'Rosat2Brainstorm: Loading Roast FEM Mesh...');
-roast_headmodel = load(fullfile(OPTIONS.RoastOutputDir, 'MNI152_T1_1mm_MNI152leadField.mat'));
+roast_headmodel = load(fullfile(OPTIONS.RoastOutputDir, ...
+    strrep(OPTIONS.inputSubjectMri, '.nii', '_MNI152leadField.mat')));
+sMri = load(file_fullpath(filenameRelative));
 % Write to the Brainstorm format
 FemMat = db_template('femmat');
 % New surface structure
@@ -271,7 +275,7 @@ bst_progress('text', 'Rosat2Brainstorm: Load the channels file...');
 electrode_coord = load('lf_electrode_coord.mat');
 load('MNI152_T1_1mm_indInRoastCore.mat', 'indInRoastCore');
 % Find the real electrode names
-fid = fopen(fullfile(roast_dir,'./elec72.loc')); C = textscan(fid,'%d %f %f %s'); fclose(fid);
+fid = fopen(fullfile(OPTIONS.RoastHomeDir,'./elec72.loc')); C = textscan(fid,'%d %f %f %s'); fclose(fid);
 elecName = C{4}; for i=1:length(elecName), elecName{i} = strrep(elecName{i},'.',''); end
 if OPTIONS.computeMNI == 1 % will convert to the scs coordinates
     % Tramsform the coordinates
@@ -292,7 +296,7 @@ for iCh = 1:length(electrode_coordReorder)
     ChannelMat.Channel(iCh).Weight = 1;
     ChannelMat.Channel(iCh).Group = [];
 end
-ChannelMat.Comment =  ['roast channel (' num2str(length(electrode_coord.electrode_coord)) ')'];
+ChannelMat.Comment =  ['roast channel (' num2str(length(electrode_coord)) ')'];
 ChannelMat.HeadPoints.Loc = [];
 ChannelMat.HeadPoints.Label = [];
 ChannelMat.HeadPoints.Type = [];
@@ -315,8 +319,8 @@ db_add(iStudy, ChannelMatFile, 'electrodes from roast');
 % FEM cortex
 % Load the leadfield
 bst_progress('text', 'Rosat2Brainstorm: Load the Roast Leadfield...');
-%% TODO ==> get the name automatically
-roast_leadfield = load('MNI152_T1_1mm_MNI152leadField_roastResult.mat');
+roast_leadfield = load([OPTIONS.RoastOutputDir, '/', ...
+    strrep(OPTIONS.inputSubjectMri, '.nii', '_MNI152leadField_roastResult.mat')]);
 % Add zeros for the reference
 roast_leadfield.A_all = cat(3, ...
     roast_leadfield.A_all, zeros(size(roast_leadfield.A_all,1), size(roast_leadfield.A_all,2)));
@@ -419,6 +423,8 @@ function defOPTIONS = roast2brainstorm_defaults()
     mfilename = ('roast.m');
     RoastHomeDir = fileparts(which(mfilename));    
     RoastOutputDir = fullfile(RoastHomeDir,'example');
+    % Should be defined by the user
+%     RoastOutputDir = fullfile('/home/max/Desktop/MyMRI/Registered/');
     
     % start braisntom 
     % Start Brainstorm with GUI
@@ -468,6 +474,3 @@ surf.vertices=surf.vertices(UsedV,:);
 surf.faces=new_indx(surf.faces);
 % surf.tissue=new_indx(surf.tissue);
 end
-
-
-
